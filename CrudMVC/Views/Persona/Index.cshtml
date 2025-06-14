@@ -1,0 +1,203 @@
+﻿
+@{
+    ViewBag.Title = "Index";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="row mt-4">
+    <div class="col-sm-12">
+        <h2>CRUD MVC</h2>
+        <div class="card">
+            <div class="card-header d-flex justify-content-end">
+                <button id="new_data" class="btn btn-outline-primary"><i class="fa-solid fa-square-plus"></i></button>
+            </div>
+            <div class="card-body">
+                <div id="example-table"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@*Modal Agregar-Editar*@
+<div class="modal fade" id="exampleModal" tabindex="-1" aria-labelledby="modal_data" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h1 class="modal-title fs-5" id="modal_data"></h1>
+            </div>
+            <div class="modal-body">
+                <form>
+                    <div class="mb-3 d-none">
+                        <label for="data-name" class="col-form-label">Nombre:</label>
+                        <input type="text" class="form-control" id="data-id">
+                    </div>
+                    <div class="mb-3">
+                        <label for="data-name" class="col-form-label">Nombre:</label>
+                        <input type="text" class="form-control" id="data-name">
+                    </div>
+                    <div class="mb-3">
+                        <label for="data-lastname" class="col-form-label">Apellido:</label>
+                        <input type="text" class="form-control" id="data-lastname">
+                    </div>
+                    <div class="mb-3">
+                        <label for="data-email" class="col-form-label">Correo electrónico:</label>
+                        <input type="text" class="form-control" id="data-email">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="SaveUser()">Send message</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@*Modal Eliminar*@
+<div class="modal fade" id="delete_user" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h1 class="modal-title fs-5" id="exampleModalLabel">Eliminar usuario</h1>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3 d-none">
+                    <input type="text" class="form-control" id="data-id">
+                </div>
+                <span id="delete_data"></span>
+                <span>Esta acción no puede revertirse.</span>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="DeleteUser()">Eliminar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section scripts{
+    <script>
+        let tabledata;
+
+        $(document).ready(function () {
+            getData();
+        })
+
+        $('#new_data').click(() => {
+            $('#modal_data').text('Agregar usuario');
+            $('#exampleModal').modal('show');
+            $('#data-id').val('');
+            $('#data-name').val('');
+            $('#data-lastname').val('');
+            $('#data-email').val('');
+        })
+
+        function getData() {
+            fetch("@Url.Action("Data", "Persona")")
+                .then(response => {
+                    if (!response.ok) throw new Error("Error en la respuesta del servidor");
+                    return response.json();
+                })
+                .then(data => {
+                    var table = new Tabulator("#example-table", {
+                        height: 205,
+                        data: data.data,
+                        layout: "fitColumns",
+                        columns: [
+                            { title: "Nombre", field: "Nombre" },
+                            { title: "Apellido", field: "Apellido" },
+                            { title: "Correo", field: "Correo" },
+                            {
+                                title: "Registro",
+                                field: "FechaRegistro",
+                                formatter: function (cell, formatterParams) {
+                                    const rawDate = cell.getValue();
+                                    const timestamp = parseInt(rawDate.match(/\d+/)[0]);
+                                    const date = new Date(timestamp);
+                                    return date.toLocaleDateString();
+                                }
+                            }
+
+                        ],
+                        rowContextMenu: [
+                            {
+                                label: `<i class="fa-solid fa-pen-to-square"></i> Editar`,
+                                action: function (e, row) {
+                                    EditUser(row.getData());
+                                }
+                            },
+                            {
+                                label: `<i class="fa-solid fa-trash"></i> Eliminar`,
+                                action: function (e, row) {
+                                    $('#data-id').val(row.getData().IdUsuario);
+                                    $('#delete_data').text(`¿Seguro de eliminar el usuario ${row.getData().Nombre} ${row.getData().Apellido}?`)
+                                    $('#delete_user').modal("show");
+                                }
+                            },
+                        ]
+                    });
+                })
+                .catch(error => {
+                    console.error("Hubo un problema al cargar los datos:", error);
+                });
+        }
+
+
+        function EditUser(data) {
+            if (data.IdUsuario) {
+                $('#modal_data').text('Editar usuario');
+                $('#data-id').val(data.IdUsuario);
+                $('#data-name').val(data.Nombre);
+                $('#data-lastname').val(data.Apellido);
+                $('#data-email').val(data.Correo);
+                $('#exampleModal').modal("show");
+            } else {
+                alert('El registro no existe.');
+                $('#data-id').val('');
+                $('#data-name').val('');
+                $('#data-lastname').val('');
+                $('#data-email').val('');
+            }
+        }
+
+        function SaveUser() {
+            let userData = {
+                IdUsuario: $('#data-id').val(),
+                Nombre: $('#data-name').val(),
+                Apellido: $('#data-lastname').val(),
+                Correo: $('#data-email').val(),
+            }
+
+            fetch("@Url.Action("Save", "Persona")", {
+                method: "POST",
+                body: JSON.stringify(userData),
+                headers: { "Content-type": "application/json; charset=UTF-8" }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        $('#exampleModal').modal('hide');
+                        getData();
+                    }
+                })
+                .catch((error) => console.error(error));
+        }
+
+        function DeleteUser() {
+            let IdUsuario = $('#data-id').val();
+
+            fetch("@Url.Action("Delete", "Persona")" + "?IdUsuario=" + IdUsuario)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        $('#delete_user').modal('hide');
+                        getData();
+                    }
+                })
+                .catch((error) => console.error(error));
+
+        }
+    </script>
+}
+
+
